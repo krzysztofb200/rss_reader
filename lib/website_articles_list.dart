@@ -24,19 +24,29 @@ class _WebsiteArticlesListState extends State<WebsiteArticlesList> {
 
   Future<void> _fetchRss() async {
     String link = widget.link;
-    final response = await http.get(Uri.parse(link));
-    if (response.statusCode == 200) {
-      final feed = RssFeed.parse(response.body);
+    try {
+      final response = await http.get(Uri.parse(link));
+      if (response.statusCode == 200) {
+        final feed = RssFeed.parse(response.body);
 
-      // Link do strony głównej
-      final channelLink = feed.link;
+        // Link do strony głównej
+        final channelLink = feed.link;
 
-      setState(() {
-        _rssItems = feed.items!;
-        title = channelLink!;
-      });
-    } else {
-      throw Exception('Failed to load RSS feed');
+        setState(() {
+          _rssItems = feed.items!;
+          title = channelLink!;
+        });
+      } else {
+        throw Exception('Failed to load RSS feed');
+      }
+    } catch (e) {
+      print('Error fetching RSS feed: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Wystąpił błąd podczas ładowania kanału RSS'),
+          duration: Duration(seconds: 3),
+        ),
+      );
     }
   }
 
