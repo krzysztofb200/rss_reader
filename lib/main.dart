@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rss_reader/all_pages_screen.dart';
 import 'package:rss_reader/favorite_pages_screen.dart';
+import 'package:rss_reader/my_rss_screen.dart';
 import 'package:rss_reader/website_articles_list.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -13,9 +14,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final database = openDatabase(
     join(await getDatabasesPath(), 'favorites_database.db'),
-    onCreate: (db, version) {
-      return db.execute(
+    onCreate: (db, version) async {
+      await db.execute(
         'CREATE TABLE favorites(id INTEGER PRIMARY KEY, page TEXT, link TEXT)',
+      );
+      await db.execute(
+        'CREATE TABLE myRssFeeds(id INTEGER PRIMARY KEY, name TEXT, link TEXT)',
       );
     },
     version: 1,
@@ -32,7 +36,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Bottom Nav',
+      title: 'Rss Reader',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -68,15 +72,17 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_selectedIndex == 0 ? 'Wszystkie Strony' : 'Ulubione'),
+        title: Text(_selectedIndex == 0
+            ? 'Wszystkie Strony'
+            : _selectedIndex == 1
+                ? 'Ulubione'
+                : 'Moje RSS'),
       ),
       body: _selectedIndex == 0
-          ? AllPagesScreen(
-              database: widget.database,
-            )
-          : FavoritePagesScreen(
-              database: widget.database,
-            ),
+          ? AllPagesScreen(database: widget.database)
+          : _selectedIndex == 1
+              ? FavoritePagesScreen(database: widget.database)
+              : MyRssScreen(database: widget.database),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -86,6 +92,10 @@ class _MyHomePageState extends State<MyHomePage> {
           BottomNavigationBarItem(
             icon: Icon(Icons.star),
             label: 'Ulubione',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.rss_feed),
+            label: 'Moje RSS',
           ),
         ],
         currentIndex: _selectedIndex,
