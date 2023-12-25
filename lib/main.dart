@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:rss_reader/website_articles_list.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-
-import 'settings.dart';
+import 'package:webfeed/webfeed.dart';
+import 'package:http/http.dart' as http;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -107,26 +107,26 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<String?> _fetchLogo(BuildContext context, String rssLink) async {
+    try {
+      final response = await http.get(Uri.parse(rssLink));
+      if (response.statusCode == 200) {
+        final feed = RssFeed.parse(response.body);
+        return feed.image?.url;
+      }
+    } catch (e) {
+      print('Error fetching logo: $e');
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_selectedIndex == 0 ? 'Wszystkie Strony' : 'Ulubione'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SettingsPage(),
-                ),
-              );
-            },
-          ),
-        ],
       ),
-      body: _selectedIndex == 0 ? _buildAllPagesList() : _buildFavoritePagesList(),
+      body: _selectedIndex == 0 ? _buildAllPagesList(context) : _buildFavoritePagesList(context),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
@@ -145,72 +145,142 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Widget _buildAllPagesList() {
-    return ListView.builder(
-      itemCount: allPages.length,
-      itemBuilder: (context, index) {
-        final website = allPages.keys.elementAt(index);
-        final link = allPages[website]!;
-        final isFavorite = favoritePages.any((fav) => fav['page'] == website);
-
-        return Column(
-          children: [
-            ListTile(
-              title: Text(website),
-              trailing: IconButton(
-                icon: isFavorite ? Icon(Icons.star) : Icon(Icons.star_border),
-                color: isFavorite ? Colors.amber : null,
-                onPressed: () {
-                  _toggleFavorite(website, link);
-                },
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => WebsiteArticlesList(website: website, link: link),
-                  ),
-                );
-              },
-            ),
-            Divider(
-              height: 2,
-              color: Colors.grey,
-            )
-          ],
-        );
+  Widget _buildAllPagesList(BuildContext context) {
+    return FutureBuilder<List<Widget>>(
+      future: _buildAllPagesWidgets(context),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(
+            child: Text('Error: ${snapshot.error}'),
+          );
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+            child: Text('Brak stron'),
+          );
+        } else {
+          return ListView(
+            children: snapshot.data!,
+          );
+        }
       },
     );
   }
 
-  Widget _buildFavoritePagesList() {
-    return ListView.builder(
-      itemCount: favoritePages.length,
-      itemBuilder: (context, index) {
-        final website = favoritePages[index]['page'];
-        final link = favoritePages[index]['link'];
+  Future<List<Widget>> _buildAllPagesWidgets(BuildContext context) async {
+    final List<Widget> widgets = [];
+    for (int index = 0; index < allPages.length; index++) {
+      final website = allPages.keys.elementAt(index);
+      final link = allPages[website]!;
+      final isFavorite = favoritePages.any((fav) => fav['page'] == website);
+      final logoUrl = await _fetchLogo(context, link);
 
-        return Column(
-          children: [
-            ListTile(
-              title: Text(website),
-              onTap: () {
-                // Otwarcie nowego ekranu z przekazaniem linka
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => WebsiteArticlesList(website: website, link: link),
-                  ),
-                );
+      widgets.add(
+        Card(
+          elevation: 2,
+          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: ListTile(
+            contentPadding: EdgeInsets.all(16),
+            title: Text(
+              website,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            leading: logoUrl != null
+                ? Image.network(
+                    logoUrl,
+                    width: 80,
+                    height: 40,
+                    fit: BoxFit.contain,
+                  )
+                : SizedBox.shrink(),
+            trailing: IconButton(
+              icon: isFavorite ? Icon(Icons.star, color: Colors.amber) : Icon(Icons.star_border),
+              onPressed: () {
+                _toggleFavorite(website, link);
               },
             ),
-            Divider(
-              height: 2,
-              color: Colors.grey,
-            )
-          ],
-        );
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => WebsiteArticlesList(website: website, link: link),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+    return widgets;
+  }
+
+  Widget _buildFavoritePagesList(BuildContext context) {
+    return FutureBuilder<List<Widget>>(
+      future: _buildFavoritePagesWidgets(context),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(
+            child: Text('Error: ${snapshot.error}'),
+          );
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+            child: Text('Brak ulubionych'),
+          );
+        } else {
+          return ListView(
+            children: snapshot.data!,
+          );
+        }
       },
     );
+  }
+
+  Future<List<Widget>> _buildFavoritePagesWidgets(BuildContext context) async {
+    final List<Widget> widgets = [];
+    for (int index = 0; index < favoritePages.length; index++) {
+      final website = favoritePages[index]['page'];
+      final link = favoritePages[index]['link'];
+      final logoUrl = await _fetchLogo(context, link);
+
+      widgets.add(
+        Card(
+          elevation: 2,
+          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: ListTile(
+            contentPadding: EdgeInsets.all(16),
+            title: Text(
+              website,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            leading: logoUrl != null
+                ? Image.network(
+                    logoUrl,
+                    width: 80,
+                    height: 40,
+                    fit: BoxFit.contain,
+                  )
+                : SizedBox.shrink(),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => WebsiteArticlesList(website: website, link: link),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+    return widgets;
   }
 }

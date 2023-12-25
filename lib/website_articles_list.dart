@@ -50,40 +50,48 @@ class _WebsiteArticlesListState extends State<WebsiteArticlesList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.website),
-      ),
-      body: _rssItems.isEmpty
-          ? Center(
-              child: CircularProgressIndicator(),
-            )
-          : ListView.builder(
-              itemCount: _rssItems.length,
-              itemBuilder: (context, index) {
-                final item = _rssItems[index];
-                return Column(
-                  children: [
-                    ListTile(
-                      title: Text(item.title ?? ''),
-                      subtitle: Text(item.pubDate != null ? _formatDateTime(item.pubDate!) : ''),
+        appBar: AppBar(
+          title: Text(widget.website),
+        ),
+        body: _rssItems.isEmpty
+            ? Center(
+                child: CircularProgressIndicator(),
+              )
+            : ListView.builder(
+                itemCount: _rssItems.length,
+                itemBuilder: (context, index) {
+                  final item = _rssItems[index];
+                  return Card(
+                    elevation: 2,
+                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.all(16),
+                      title: Text(
+                        item.title ?? '',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        item.pubDate != null ? _formatDateTime(item.pubDate!) : '',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => WebViewPage(url: item.link ?? '', title: title),
+                            builder: (context) => WebViewPage(url: item.link ?? '', title: item.title ?? ''),
                           ),
                         );
                       },
                     ),
-                    Divider(
-                      height: 1, // Grubość separatora
-                      color: Colors.grey,
-                    )
-                  ],
-                );
-              },
-            ),
-    );
+                  );
+                },
+              ));
   }
 }
 
