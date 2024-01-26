@@ -4,11 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:rss_reader/all_pages_screen.dart';
 import 'package:rss_reader/favorite_pages_screen.dart';
 import 'package:rss_reader/my_rss_screen.dart';
-import 'package:rss_reader/website_articles_list.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:webfeed/webfeed.dart';
-import 'package:http/http.dart' as http;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
